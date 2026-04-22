@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+@theme {
+  --color-navy-950: #020617;
+  --color-navy-900: #0f172a;
+  --color-cyan-400: #22d3ee;
+  --color-cyan-500: #06b6d4;
+  --color-blue-500: #3b82f6;
+}
+
+@layer base {
+  body {
+    @apply bg-navy-950 text-slate-200 antialiased selection:bg-cyan-500/30;
+    background: linear-gradient(135deg, #020617 0%, #0f172a 100%);
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .glass-card:hover {
+    @apply bg-white/10 border-white/20 -translate-y-1 shadow-cyan-500/10;
+  }
+
+  .neon-glow-cyan {
+    text-shadow: 0 0 10px rgba(34, 211, 238, 0.5), 0 0 20px rgba(34, 211, 238, 0.3);
+  }
+
+  .neon-glow-red {
+    text-shadow: 0 0 10px rgba(239, 68, 68, 0.5), 0 0 20px rgba(239, 68, 68, 0.3);
+  }
+
+  .neon-glow-green {
+    text-shadow: 0 0 10px rgba(34, 197, 94, 0.5), 0 0 20px rgba(34, 197, 94, 0.3);
+  }
+
+  .neon-glow-yellow {
+    text-shadow: 0 0 10px rgba(234, 179, 8, 0.5), 0 0 20px rgba(234, 179, 8, 0.3);
+  }
+
+  @keyframes pulse-red {
+    0%, 100% { 
+      text-shadow: 0 0 15px rgba(239, 68, 68, 0.8), 0 0 30px rgba(239, 68, 68, 0.6), 0 0 45px rgba(239, 68, 68, 0.4);
+      box-shadow: inset 0 0 20px rgba(239, 68, 68, 0.2), 0 0 20px rgba(239, 68, 68, 0.2);
+    }
+    50% { 
+      text-shadow: 0 0 25px rgba(239, 68, 68, 1), 0 0 50px rgba(239, 68, 68, 0.8), 0 0 75px rgba(239, 68, 68, 0.6);
+      box-shadow: inset 0 0 40px rgba(239, 68, 68, 0.4), 0 0 40px rgba(239, 68, 68, 0.4);
+    }
+  }
+
+  @keyframes pulse-yellow {
+    0%, 100% { 
+      text-shadow: 0 0 10px rgba(234, 179, 8, 0.5), 0 0 20px rgba(234, 179, 8, 0.3);
+    }
+    50% { 
+      text-shadow: 0 0 20px rgba(234, 179, 8, 0.8), 0 0 40px rgba(234, 179, 8, 0.5);
+    }
+  }
+
+  .animate-glow-red {
+    animation: pulse-red 2s infinite ease-in-out;
+  }
+
+  .animate-glow-yellow {
+    animation: pulse-yellow 3s infinite ease-in-out;
+  }
+
+  .glow-green-subtle {
+    text-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
+    box-shadow: inset 0 0 10px rgba(34, 197, 94, 0.05);
+  }
+
+  /* Icon Specific Glows */
+  .icon-glow-green {
+    filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.5));
+  }
+
+  .icon-glow-red {
+    filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.6));
+  }
+
+  @keyframes icon-pulse-red {
+    0%, 100% { 
+      filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.6)) drop-shadow(0 0 20px rgba(239, 68, 68, 0.2));
+      transform: scale(1);
+    }
+    50% { 
+      filter: drop-shadow(0 0 25px rgba(239, 68, 68, 0.9)) drop-shadow(0 0 40px rgba(239, 68, 68, 0.4));
+      transform: scale(1.1);
+    }
+  }
+
+  @keyframes scan {
+    0% { top: 0; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+  }
+
+  .animate-icon-pulse-red {
+    animation: icon-pulse-red 2s infinite ease-in-out;
+  }
+
+  /* Markdown Styling for AI Briefings */
+  .markdown-body h1 { @apply text-lg font-black uppercase tracking-tighter text-yellow-500 mt-6 mb-2 border-b border-yellow-500/20 pb-1 font-sans; }
+  .markdown-body h2 { @apply text-base font-black uppercase tracking-tighter text-cyan-400 mt-4 mb-2 font-sans; }
+  .markdown-body h3 { @apply text-xs font-bold text-white mt-3 mb-1 uppercase tracking-widest font-sans; }
+  .markdown-body p { @apply text-[11px] text-slate-400 mb-2 leading-relaxed font-mono; }
+  .markdown-body ul { @apply list-disc list-inside mb-4 space-y-1 font-mono; }
+  .markdown-body li { @apply text-[11px] text-slate-300; }
+  .markdown-body strong { @apply text-yellow-500 font-black tracking-normal; }
+  .markdown-body blockquote { @apply border-l-2 border-yellow-500/50 pl-4 py-1 my-4 bg-yellow-500/5 text-slate-300 italic text-[10px]; }
+}
