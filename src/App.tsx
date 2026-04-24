@@ -32,7 +32,9 @@ import {
   ShieldCheck,
   ShieldAlert,
   Terminal,
-  Printer
+  Printer,
+  Calendar,
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -102,10 +104,39 @@ interface ForecastData {
 
 const AIRPORTS = [
   { id: 'kano', name: 'Kano (KAN)', lat: 12.0476, lon: 8.5246, city: 'Kano, Nigeria' },
-  { id: 'abuja', name: 'Abuja (ABV)', lat: 9.0065, lon: 7.3986, city: 'Abuja, Nigeria' },
+  { id: 'abuja', name: 'Abuja (ABV)', lat: 9.0765, lon: 7.3986, city: 'Abuja, Nigeria' },
   { id: 'jos', name: 'Jos (JOS)', lat: 9.8965, lon: 8.8583, city: 'Jos, Nigeria' },
   { id: 'bauchi', name: 'Bauchi (BCU)', lat: 10.3158, lon: 9.8442, city: 'Bauchi, Nigeria' },
 ];
+
+// --- Weather Intelligence Helpers ---
+
+async function getWeather(lat: number, lon: number) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,windspeed_10m`;
+
+  const res = await fetch(url);
+  const data = await res.json();
+
+  return {
+    temp: data.current_weather.temperature,
+    wind: data.current_weather.windspeed,
+    time: data.hourly.time.slice(0, 10).map((t: string) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })),
+    temps: data.hourly.temperature_2m.slice(0, 10),
+    winds: data.hourly.windspeed_10m.slice(0, 10)
+  };
+}
+
+function predictTemp(temps: number[]) {
+  if (!temps || temps.length === 0) return "0";
+  const avg = temps.reduce((a, b) => a + b, 0) / temps.length;
+  return (avg + 0.5).toFixed(1);
+}
+
+function updateRisk(wind: number) {
+  if (wind > 30) return "HIGH RISK – DELAY ADVISED";
+  if (wind > 20) return "RESTRICTED OPERATIONS";
+  return "NORMAL OPERATIONS";
+}
 
 const generateMockHistory = (count: number): WeatherData[] => {
   const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
@@ -149,6 +180,119 @@ const StatusIndicator = ({ label, status, colorClass }: { label: string; status:
     <span className={cn("text-[10px] font-black tracking-widest uppercase", colorClass.replace('bg-', 'text-'))}>{status}</span>
   </div>
 );
+
+// --- UI Components ---
+
+function ForecastTable({ data, isLoading }: { data: any, isLoading: boolean }) {
+  if (isLoading) return (
+    <div className="glass-card p-6 h-[300px] flex items-center justify-center">
+      <RefreshCw className="w-8 h-8 text-cyan-500/20 animate-spin" />
+    </div>
+  );
+
+  if (!data) return (
+    <div className="glass-card p-6 h-[300px] flex items-center justify-center text-slate-500 text-xs font-black uppercase tracking-widest">
+      No Forecast Data Grounded
+    </div>
+  );
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="glass-card overflow-hidden"
+    >
+      <div className="p-6 border-b border-white/5 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-cyan-400" />
+          <h3 className="text-xs font-black tracking-widest uppercase text-slate-400">10-Hour Intelligence Forecast</h3>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Live from Open-Meteo</span>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-white/2 border-b border-white/5">
+              <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Time</th>
+              <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Temp</th>
+              <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Wind</th>
+              <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Risk Index</th>
+              <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/2">
+            {data.time.map((time: string, i: number) => {
+              const temp = data.temps[i];
+              const wind = data.winds[i];
+              const risk = updateRisk(wind);
+              const isHighRisk = risk.includes('HIGH');
+              const isCaution = risk.includes('RESTRICTED');
+
+              return (
+                <motion.tr 
+                  key={i}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="hover:bg-white/2 transition-colors group"
+                >
+                  <td className="px-6 py-4 text-[11px] font-black text-white font-mono">{time}</td>
+                  <td className="px-6 py-4 text-center">
+                    <span className={cn(
+                      "text-[12px] font-black",
+                      temp > 35 ? "text-red-400" : temp > 25 ? "text-orange-400" : "text-cyan-400"
+                    )}>
+                      {temp.toFixed(1)}°
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <div className="flex flex-col items-center">
+                      <span className="text-[11px] font-black text-white">{wind.toFixed(1)} <span className="text-[9px] text-slate-500">kn</span></span>
+                      <div className="w-12 h-1 bg-white/5 rounded-full mt-1 overflow-hidden">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.min(wind * 2, 100)}%` }}
+                          className={cn("h-full", isHighRisk ? "bg-red-500" : "bg-cyan-500")}
+                        />
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <span className={cn(
+                      "text-[9px] font-black px-2 py-0.5 rounded-full tracking-widest uppercase",
+                      isHighRisk ? "bg-red-500/10 text-red-500 border border-red-500/20" : 
+                      isCaution ? "bg-orange-500/10 text-orange-400 border border-orange-500/20" : 
+                      "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
+                    )}>
+                      {(risk || '').split('–')[0].trim()}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                       {isHighRisk ? (
+                         <div className="flex items-center gap-1">
+                           <AlertCircle className="w-3 h-3 text-red-500 animate-pulse" />
+                           <span className="text-[9px] font-black text-red-500 uppercase tracking-tighter">STOP</span>
+                         </div>
+                       ) : isCaution ? (
+                         <span className="text-[9px] font-black text-orange-400 uppercase tracking-tighter">CAUTION</span>
+                       ) : (
+                         <span className="text-[9px] font-black text-emerald-500 uppercase tracking-tighter">CLEAR</span>
+                       )}
+                    </div>
+                  </td>
+                </motion.tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </motion.div>
+  );
+}
 
 const WeatherCard = ({ icon: Icon, label, value, unit, trend, subLabel, subValue }: { 
   icon: any; 
@@ -1596,8 +1740,9 @@ const MapView = ({ airports, selectedAirport, onSelect, currentData, forecast, o
 };
 
 export default function App() {
-  const [selectedAirport, setSelectedAirport] = useState(AIRPORTS[0]);
+  const [selectedAirport, setSelectedAirport] = useState(AIRPORTS[1]); // Abuja (ABV)
   const [history, setHistory] = useState<WeatherData[]>(generateMockHistory(12));
+  const [realWeather, setRealWeather] = useState<any>(null);
   const [isLiveLoading, setIsLiveLoading] = useState(false);
   const [aiRecommendation, setAiRecommendation] = useState<string | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(false);
@@ -1754,10 +1899,15 @@ export default function App() {
   const fetchLiveIntelligence = useCallback(async () => {
     setIsLiveLoading(true);
     try {
+      // Fetch real weather from Open-Meteo
+      const realWeatherData = await getWeather(selectedAirport.lat, selectedAirport.lon);
+      setRealWeather(realWeatherData);
+
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: `Act as a Real-Time Aviation Dispatcher. 
         FETCH ACTUAL CURRENT DATA for ${selectedAirport.name} (${selectedAirport.id}) in ${selectedAirport.city}. 
+        Use these real values as baseline: Temp: ${realWeatherData.temp}°C, Wind: ${realWeatherData.wind} knots.
         Return a strict JSON object with weather and ACTIVE NOTAMs.
         Categorize each advisory by severity: "CRITICAL" (e.g. airport closure), "WARNING" (e.g. runway maintenance), or "INFO".
         Identify impact as "AIRSPACE", "RUNWAY", "NAV", or "PROCEDURE".`,
@@ -2003,10 +2153,10 @@ export default function App() {
   };
 
   const tempChartData = {
-    labels: history.map(h => h.timestamp),
+    labels: realWeather ? realWeather.time : history.map(h => h.timestamp),
     datasets: [{
       label: 'Temperature',
-      data: history.map(h => h.temp),
+      data: realWeather ? realWeather.temps : history.map(h => h.temp),
       borderColor: '#22d3ee',
       backgroundColor: 'rgba(34, 211, 238, 0.1)',
       fill: true,
@@ -2017,10 +2167,10 @@ export default function App() {
   };
 
   const windChartData = {
-    labels: history.map(h => h.timestamp),
+    labels: realWeather ? realWeather.time : history.map(h => h.timestamp),
     datasets: [{
       label: 'Wind Speed',
-      data: history.map(h => h.windSpeed),
+      data: realWeather ? realWeather.winds : history.map(h => h.windSpeed),
       borderColor: '#facc15',
       backgroundColor: 'rgba(250, 204, 21, 0.1)',
       fill: true,
@@ -2164,6 +2314,16 @@ export default function App() {
                 <span className="text-4xl font-black tracking-tighter text-white neon-glow-cyan">{operationalScore}%</span>
               </div>
               <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-slate-500 mt-1">Operational Score</p>
+              {realWeather && (
+                <div className="mt-2 pt-2 border-t border-white/5">
+                  <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">
+                    AI Predict: {predictTemp(realWeather.temps)}°C
+                  </p>
+                  <p className="text-[9px] font-black text-white uppercase mt-1">
+                    {updateRisk(current.windSpeed)}
+                  </p>
+                </div>
+              )}
             </div>
           </motion.div>
         </div>
@@ -2199,12 +2359,16 @@ export default function App() {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-cyan-400" />
-                <h3 className="text-xs font-black tracking-widest uppercase text-slate-400">Temperature Trend</h3>
+                <h3 className="text-xs font-black tracking-widest uppercase text-slate-400">Temperature intelligence analytics</h3>
               </div>
-              <span className="text-[10px] font-bold text-slate-500">LAST 12 HOURS</span>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-cyan-400" />
+                <span className="text-[10px] font-bold text-slate-500 tracking-tighter uppercase">Grounding Actuals</span>
+              </div>
             </div>
-            <div className="h-[240px]">
+            <div className="h-[260px] relative group">
               <Line data={tempChartData} options={chartOptions} />
+              <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-xl" />
             </div>
           </div>
 
@@ -2212,17 +2376,21 @@ export default function App() {
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-yellow-400" />
-                <h3 className="text-xs font-black tracking-widest uppercase text-slate-400">Wind Speed Trend</h3>
+                <h3 className="text-xs font-black tracking-widest uppercase text-slate-400">Wind Velocity metrics</h3>
               </div>
-              <span className="text-[10px] font-bold text-slate-500">LAST 12 HOURS</span>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-yellow-400" />
+                <span className="text-[10px] font-bold text-slate-500 tracking-tighter uppercase">Grounding Actuals</span>
+              </div>
             </div>
-            <div className="h-[240px]">
+            <div className="h-[260px] relative group">
               <Line data={windChartData} options={chartOptions} />
+              <div className="absolute inset-0 bg-yellow-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-xl" />
             </div>
           </div>
         </div>
 
-        {/* Row 3: Alert Panel & Forecast */}
+        {/* Row 3: Alert Panel & Forecast Intelligence */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Alert Panel */}
           <div className={cn("lg:col-span-1 glass-card p-8 flex flex-col items-center justify-center text-center border-2", riskStatus.border, riskStatus.bg, riskStatus.animate)}>
@@ -2268,64 +2436,8 @@ export default function App() {
             </div>
           </div>
 
-          {/* Forecast Table */}
-          <div className="lg:col-span-2 glass-card overflow-hidden">
-            <div className="p-6 border-bottom border-white/5 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Radio className="w-4 h-4 text-cyan-400" />
-                <h3 className="text-xs font-black tracking-widest uppercase text-slate-400">Operational Forecast</h3>
-              </div>
-              <button className="text-[10px] font-black text-cyan-400 hover:text-cyan-300 transition-colors uppercase tracking-widest">View Full Report</button>
-            </div>
-            <div className="overflow-x-auto h-[400px] overflow-y-auto">
-              <table className="w-full text-left">
-                <thead className="sticky top-0 z-20 bg-navy-900">
-                  <tr className="bg-white/5">
-                    <th className="px-6 py-4 text-[10px] font-black tracking-widest uppercase text-slate-500">Day / Time</th>
-                    <th className="px-6 py-4 text-[10px] font-black tracking-widest uppercase text-slate-500">Condition</th>
-                    <th className="px-6 py-4 text-[10px] font-black tracking-widest uppercase text-slate-500">Temp</th>
-                    <th className="px-6 py-4 text-[10px] font-black tracking-widest uppercase text-slate-500">Wind</th>
-                    <th className="px-6 py-4 text-[10px] font-black tracking-widest uppercase text-slate-500">Precip %</th>
-                    <th className="px-6 py-4 text-[10px] font-black tracking-widest uppercase text-slate-500">Ops Risk</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {FORECAST.map((item, i) => (
-                    <tr key={i} className="hover:bg-white/5 transition-colors group">
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-black text-cyan-400 tracking-widest uppercase">{item.day}</span>
-                          <span className="text-sm font-bold text-slate-300 group-hover:text-white transition-colors">{item.time}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-medium text-slate-400">{item.condition}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-black text-white">{item.temp}°C</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-medium text-slate-400">{item.wind} kn</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-1.5">
-                          <Droplets className="w-3 h-3 text-cyan-400" />
-                          <span className={cn("text-sm font-bold", item.precip > 50 ? "text-cyan-400" : "text-slate-400")}>{item.precip}%</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className={cn("w-1.5 h-1.5 rounded-full", item.wind > 25 ? "bg-red-400" : item.wind > 15 ? "bg-yellow-400" : "bg-green-400")} />
-                          <span className={cn("text-[10px] font-black tracking-widest uppercase", item.wind > 25 ? "text-red-400" : item.wind > 15 ? "text-yellow-400" : "text-green-400")}>
-                            {item.wind > 25 ? 'HIGH' : item.wind > 15 ? 'MED' : 'LOW'}
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div className="lg:col-span-2">
+            <ForecastTable data={realWeather} isLoading={isLiveLoading} />
           </div>
         </div>
       </main>
