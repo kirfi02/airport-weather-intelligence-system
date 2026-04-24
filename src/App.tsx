@@ -67,6 +67,7 @@ ChartJS.register(
 
 interface Advisory {
   type: string;
+  severity?: string;
   msg: string;
   source: string;
   time: string;
@@ -403,13 +404,13 @@ const AirportDetailsModal = ({
 
   if (!isOpen) return null;
 
-  const aiAdvisories = useMemo(() => {
+  const aiAdvisories = useMemo<Advisory[]>(() => {
     if (currentData.advisories && currentData.advisories.length > 0) {
       return currentData.advisories;
     }
     
     // Fallback/Default advisories if AI data is sparse
-    const base = [
+    const base: Advisory[] = [
       { 
         type: 'INFO', 
         msg: 'Runway 22/04 operational with visual approach.', 
@@ -575,7 +576,8 @@ const AirportDetailsModal = ({
                         transition={{ delay: 0.3 + i * 0.1 }}
                         className={cn(
                           "p-6 rounded-3xl bg-white/5 border border-white/5 border-l-4 relative overflow-hidden group shadow-2xl transition-all hover:bg-white/10",
-                          a.type === 'WARNING' || a.type === 'CRITICAL' ? "border-l-red-500" : "border-l-cyan-500"
+                          a.type === 'CRITICAL' || a.severity === 'HIGH' ? "border-l-red-500 bg-red-500/5" : 
+                          a.type === 'WARNING' || a.severity === 'MEDIUM' ? "border-l-yellow-500 bg-yellow-500/5" : "border-l-cyan-500"
                         )}
                       >
                         <div className="absolute -right-6 -top-6 opacity-5 pointer-events-none group-hover:rotate-12 transition-transform duration-1000">
@@ -585,14 +587,19 @@ const AirportDetailsModal = ({
                           <div className="flex items-center gap-3">
                             <div className={cn(
                               "p-2 rounded-xl border border-opacity-30",
-                              a.type === 'WARNING' || a.type === 'CRITICAL' ? "bg-red-500/10 border-red-500 text-red-400" : "bg-cyan-500/10 border-cyan-500 text-cyan-400"
+                              a.type === 'CRITICAL' || a.severity === 'HIGH' ? "bg-red-500/10 border-red-500 text-red-400" : 
+                              a.type === 'WARNING' || a.severity === 'MEDIUM' ? "bg-yellow-500/10 border-yellow-500 text-yellow-500" : "bg-cyan-500/10 border-cyan-500 text-cyan-400"
                             )}>
                               {a.type === 'INFO' ? <Activity className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
                             </div>
-                            <span className={cn(
-                              "text-xs font-black tracking-[0.2em] uppercase",
-                              a.type === 'WARNING' || a.type === 'CRITICAL' ? "text-red-400" : "text-cyan-400"
-                            )}>{a.type}</span>
+                            <div className="flex flex-col">
+                              <span className={cn(
+                                "text-[10px] font-black tracking-[0.2em] uppercase",
+                                a.type === 'CRITICAL' || a.severity === 'HIGH' ? "text-red-400" : 
+                                a.type === 'WARNING' || a.severity === 'MEDIUM' ? "text-yellow-500" : "text-cyan-400"
+                              )}>{a.type}</span>
+                              {a.severity && <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{a.severity} SEVERITY</span>}
+                            </div>
                           </div>
                           <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">{a.time}</span>
                         </div>
@@ -607,8 +614,12 @@ const AirportDetailsModal = ({
                             <span className="block text-[10px] font-black text-slate-300 uppercase">{a.source}</span>
                           </div>
                           <div>
-                            <span className="block text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1">Flight Impact</span>
-                            <span className="block text-[10px] font-black text-cyan-500 uppercase leading-snug">{a.impact}</span>
+                            <span className="block text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1">Target Impact</span>
+                            <span className={cn(
+                              "block text-[10px] font-black uppercase leading-snug",
+                              a.impact === 'AIRSPACE' ? "text-purple-400" : 
+                              a.impact === 'RUNWAY' ? "text-red-400" : "text-cyan-500"
+                            )}>{a.impact || 'GENERAL'}</span>
                           </div>
                         </div>
                       </motion.div>
@@ -651,11 +662,19 @@ const AirportDetailsModal = ({
                               initial={{ opacity: 0, x: 20 }}
                               animate={{ opacity: 1, x: 0 }}
                               transition={{ delay: i * 0.1 }}
-                              className="p-6 rounded-3xl bg-black/40 border border-yellow-500/10 border-l-4 border-l-yellow-600 relative overflow-hidden group shadow-xl"
+                              className={cn(
+                                "p-6 rounded-3xl bg-black/40 border border-yellow-500/10 border-l-4 relative overflow-hidden group shadow-xl",
+                                a.severity === 'HIGH' ? "border-l-red-600" : "border-l-yellow-600"
+                              )}
                             >
                               <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-3">
-                                  <span className="text-[10px] font-black bg-yellow-500/20 text-yellow-500 px-2 py-0.5 rounded tracking-widest uppercase">NOTAM {i+1}</span>
+                                  <span className={cn(
+                                    "text-[10px] font-black px-2 py-0.5 rounded tracking-widest uppercase",
+                                    a.severity === 'HIGH' ? "bg-red-500/20 text-red-500" : "bg-yellow-500/20 text-yellow-500"
+                                  )}>
+                                    NOTAM {a.severity === 'HIGH' ? 'CRITICAL' : i+1}
+                                  </span>
                                   <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono italic">{a.source}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -666,12 +685,26 @@ const AirportDetailsModal = ({
                               <p className="text-sm font-bold text-slate-200 leading-relaxed mb-4 font-mono select-all">
                                 {a.msg}
                               </p>
-                              <div className="flex items-center gap-2 pt-4 border-t border-white/5">
-                                <div className="p-1 rounded bg-red-500/10">
-                                  <AlertTriangle className="w-3 h-3 text-red-500/70" />
+                              <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                                <div className="flex items-center gap-2">
+                                  <div className={cn(
+                                    "p-1 rounded",
+                                    a.severity === 'HIGH' ? "bg-red-500/20" : "bg-yellow-500/10"
+                                  )}>
+                                    <AlertTriangle className={cn(
+                                      "w-3 h-3",
+                                      a.severity === 'HIGH' ? "text-red-500" : "text-yellow-500/70"
+                                    )} />
+                                  </div>
+                                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Impact: </span>
+                                  <span className={cn(
+                                    "text-[10px] font-black uppercase",
+                                    a.impact === 'RUNWAY' ? "text-red-500" : "text-yellow-500"
+                                  )}>{a.impact}</span>
                                 </div>
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Target Impact: </span>
-                                <span className="text-[10px] font-black text-yellow-500 uppercase">{a.impact}</span>
+                                {a.severity === 'HIGH' && (
+                                  <span className="text-[8px] font-black text-red-500 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20 animate-pulse">ACTION REQUIRED</span>
+                                )}
                               </div>
                             </motion.div>
                           ))
@@ -879,11 +912,36 @@ const MapView = ({ airports, selectedAirport, onSelect, currentData, forecast, o
     ).flat();
   }, []);
 
+  const getBearing = (startLat: number, startLon: number, endLat: number, endLon: number) => {
+    const lat1 = startLat * Math.PI / 180;
+    const lat2 = endLat * Math.PI / 180;
+    const dLon = (endLon - startLon) * Math.PI / 180;
+    const y = Math.sin(dLon) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  };
+
+  const getWindCorrectedETE = (distNM: number, bearing: number, windSpeed: number, windDirStr: string) => {
+    const dirs: Record<string, number> = { 'N': 0, 'NE': 45, 'E': 90, 'SE': 135, 'S': 180, 'SW': 225, 'W': 270, 'NW': 315 };
+    const windDir = dirs[windDirStr] ?? 0;
+    const airSpeed = 110; // Cessna 172 approx knots
+    
+    // Wind angle relative to flight path
+    const angleRad = (windDir - bearing) * Math.PI / 180;
+    const headwind = windSpeed * Math.cos(angleRad);
+    const groundSpeed = Math.max(40, airSpeed - headwind); // Minimum 40kts ground speed for sanity
+    
+    const minutes = (distNM / groundSpeed) * 60;
+    return Math.round(minutes);
+  };
+
   const corridorData = useMemo(() => {
     if (!corridorStart || corridorStart.id === selectedAirport.id) return null;
     const dist = Math.sqrt(Math.pow(selectedAirport.lat - corridorStart.lat, 2) + Math.pow(selectedAirport.lon - corridorStart.lon, 2)) * 60; // nautical miles approx
+    const bearing = getBearing(corridorStart.lat, corridorStart.lon, selectedAirport.lat, selectedAirport.lon);
+    const ete = getWindCorrectedETE(dist, bearing, currentData.windSpeed, currentData.windDir);
     const safetyScore = Math.max(20, 100 - (currentData.windSpeed / 2) - (currentData.visibility < 10 ? 20 : 0));
-    return { dist, safetyScore };
+    return { dist, safetyScore, ete, bearing };
   }, [corridorStart, selectedAirport, currentData]);
 
   return (
@@ -1025,12 +1083,16 @@ const MapView = ({ airports, selectedAirport, onSelect, currentData, forecast, o
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-[8px] font-bold text-slate-500 uppercase">Route</span>
-                  <span className="text-[9px] font-black text-white">{corridorStart?.id} » {selectedAirport.id}</span>
+                  <span className="text-[8px] font-bold text-slate-500 uppercase">Est. Time</span>
+                  <span className="text-[9px] font-black text-white">{Math.floor(corridorData.ete / 60)}H {corridorData.ete % 60}M</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-[8px] font-bold text-slate-500 uppercase">Nautical Miles</span>
                   <span className="text-[9px] font-black text-cyan-400">{corridorData.dist.toFixed(0)} NM</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[8px] font-bold text-slate-500 uppercase">Course</span>
+                  <span className="text-[9px] font-black text-amber-500">{corridorData.bearing.toFixed(0)}° MAG</span>
                 </div>
                 <div className="pt-2 border-t border-white/5">
                   <div className="flex justify-between items-center mb-1">
@@ -1286,11 +1348,12 @@ const MapView = ({ airports, selectedAirport, onSelect, currentData, forecast, o
                   const midX = (start.x + end.x) / 2;
                   const midY = (start.y + end.y) / 2 - 5; // Offset for curve
                   
+                  const bearing = getBearing(selectedAirport.lat, selectedAirport.lon, airport.lat, airport.lon);
+                  const distNM = Math.sqrt(Math.pow(airport.lat - selectedAirport.lat, 2) + Math.pow(airport.lon - selectedAirport.lon, 2)) * 60;
+                  const eteMinutes = getWindCorrectedETE(distNM, bearing, currentData.windSpeed, currentData.windDir);
+                  
                   const isHovered = hoveredPathId === airport.id;
-                  const dist = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
-                  const travelMinutes = Math.round(dist * 3.2); // ~3.2 mins per map unit for Cessna 172
-
-                  const isCorridor = corridorStart && (airport.id === corridorStart.id || airport.id === selectedAirport.id);
+                  const isCorridor = corridorStart && airport.id === corridorStart.id;
 
                   return (
                     <g 
@@ -1302,16 +1365,20 @@ const MapView = ({ airports, selectedAirport, onSelect, currentData, forecast, o
                       {/* Invisible wider hit area for easier hovering */}
                       <path
                         d={`M ${start.x},${start.y} Q ${midX},${midY} ${end.x},${end.y}`}
-                        className="stroke-transparent stroke-[6] fill-none"
+                        className="stroke-transparent stroke-[10] fill-none"
                       />
                       
-                      {/* Corridor Line if active */}
-                      {corridorStart && airport.id === corridorStart.id && (
+                      {/* Corridor Glow if active */}
+                      {isCorridor && (
                         <motion.path
                           d={`M ${start.x},${start.y} Q ${midX},${midY} ${end.x},${end.y}`}
-                          className="stroke-cyan-400 stroke-[6] opacity-20 fill-none blur-md"
+                          className="stroke-cyan-400 stroke-[4] opacity-30 fill-none blur-[4px]"
                           initial={{ opacity: 0 }}
-                          animate={{ opacity: 0.2 }}
+                          animate={{ 
+                            opacity: [0.1, 0.4, 0.1],
+                            strokeWidth: [3, 5, 3] 
+                          }}
+                          transition={{ duration: 2, repeat: Infinity }}
                         />
                       )}
                       
@@ -1330,43 +1397,55 @@ const MapView = ({ airports, selectedAirport, onSelect, currentData, forecast, o
                         d={`M ${start.x},${start.y} Q ${midX},${midY} ${end.x},${end.y}`}
                         className={cn(
                           "transition-all duration-300 fill-none",
-                          isHovered ? "stroke-cyan-200 stroke-[1.8] opacity-100" : "stroke-cyan-500/20 stroke-[0.2]"
+                          isHovered || isCorridor ? "stroke-cyan-200 stroke-[1.2] opacity-100" : "stroke-cyan-500/10 stroke-[0.1]"
                         )}
+                        strokeDasharray={isCorridor ? "2 1" : "none"}
                         initial={{ pathLength: 0 }}
                         animate={{ pathLength: 1 }}
-                        transition={{ duration: 1.5, delay: i * 0.2 }}
+                        transition={{ duration: 1.5, delay: i * 0.1 }}
                       />
                       
-                      {/* Animated Signal */}
-                      <motion.circle r={isHovered ? "1.2" : "0.4"} className={cn("transition-all duration-300", isHovered ? "fill-white" : "fill-cyan-400 shadow-[0_0_8px_white]")}>
+                      {/* Animated Signal / Plane Marker */}
+                      <motion.g>
                         <animateMotion 
                           path={`M ${start.x},${start.y} Q ${midX},${midY} ${end.x},${end.y}`} 
-                          dur={isHovered ? "0.6s" : `${2 + Math.random()}s`} 
+                          dur={isCorridor ? "3s" : isHovered ? "2s" : `${5 + Math.random() * 5}s`}
+                          rotate="auto"
                           repeatCount="indefinite" 
                         />
-                      </motion.circle>
+                        {isHovered || isCorridor ? (
+                          <g transform="rotate(90)">
+                            <Plane className="w-3 h-3 text-white fill-white shadow-2xl scale-[0.3]" />
+                            <circle r="2" className="fill-cyan-500/20 animate-ping" />
+                          </g>
+                        ) : (
+                          <circle r="0.3" className="fill-cyan-400 shadow-[0_0_8px_white]" />
+                        )}
+                      </motion.g>
                       
                       {/* Interactive Tooltip */}
-                      {isHovered && (
+                      {(isHovered || (isCorridor && !hoveredPathId)) && (
                         <motion.g
                           initial={{ opacity: 0, scale: 0.9, y: 5 }}
                           animate={{ opacity: 1, scale: 1, y: 0 }}
                           className="pointer-events-none"
                         >
                           <rect 
-                            x={midX - 22} y={midY - 20} 
-                            width="44" height="18" 
+                            x={midX - 25} y={midY - 22} 
+                            width="50" height="20" 
                             rx="2" 
-                            className="fill-navy-950/98 stroke-cyan-400 stroke-[0.5] shadow-2xl" 
+                            className="fill-navy-950/98 stroke-cyan-400 stroke-[0.4] shadow-2xl" 
                           />
-                          <text x={midX} y={midY - 15} textAnchor="middle" className="fill-cyan-300 text-[3.5px] font-black uppercase tracking-[0.2em]">
+                          <text x={midX} y={midY - 16} textAnchor="middle" className="fill-cyan-300 text-[3.5px] font-black uppercase tracking-[0.2em]">
                             {selectedAirport.id.toUpperCase()} ✈ {airport.id.toUpperCase()}
                           </text>
-                          <text x={midX} y={midY - 10} textAnchor="middle" className="fill-white text-[2.5px] font-bold">
-                            EST. ETE: {Math.floor(travelMinutes / 60)}h {travelMinutes % 60}m
-                          </text>
-                          <text x={midX} y={midY - 6} textAnchor="middle" className="fill-emerald-400 text-[2px] font-black tracking-widest uppercase">
-                            ● STATUS: ON TRACK
+                          <g transform={`translate(${midX}, ${midY - 10})`}>
+                             <text textAnchor="middle" className="fill-white text-[2.8px] font-bold">
+                               DIST: {distNM.toFixed(0)} NM | ETE: {Math.floor(eteMinutes / 60)}h {eteMinutes % 60}m
+                             </text>
+                          </g>
+                          <text x={midX} y={midY - 6} textAnchor="middle" className="fill-emerald-400 text-[2.2px] font-black tracking-widest uppercase">
+                            ● WIND CORR: {currentData.windSpeed}KT @ {currentData.windDir}
                           </text>
                         </motion.g>
                       )}
@@ -1467,6 +1546,31 @@ const MapView = ({ airports, selectedAirport, onSelect, currentData, forecast, o
                     isSelected ? "fill-cyan-400" : (corridorStart && corridorStart.id === airport.id) ? "fill-yellow-400" : "fill-slate-600 hover:fill-slate-400"
                   )}
                 />
+
+                {/* Airport Label */}
+                {(isSelected || (corridorStart && corridorStart.id === airport.id) || hoveredPathId === airport.id) && (
+                  <motion.g initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                    <text
+                      x={x}
+                      y={y - 3}
+                      textAnchor="middle"
+                      className={cn(
+                        "text-[2px] font-black uppercase tracking-widest",
+                        isSelected ? "fill-cyan-400" : "fill-yellow-400"
+                      )}
+                    >
+                      {airport.id.toUpperCase()}
+                    </text>
+                    <text
+                      x={x}
+                      y={y + 4}
+                      textAnchor="middle"
+                      className="fill-slate-500 text-[1.2px] font-bold uppercase tracking-tight"
+                    >
+                      {airport.city.split(',')[0]}
+                    </text>
+                  </motion.g>
+                )}
 
                 {/* Data Label removed in favor of Modal */}
               </g>
@@ -1652,7 +1756,11 @@ export default function App() {
     try {
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `Get the current weather and 3 active NOTAMs/Advisories for ${selectedAirport.name} in ${selectedAirport.city}. Return the data in JSON format with fields: temp (Celsius), windSpeed (knots), windDir (Compass e.g. NE), pressure (hPa), description (Short string e.g. 'Partial Fog'), humidity (percentage), visibility (km), an array of 'advisories' (objects with: type [INFO/WARNING/NOTAM], msg, source [e.g. METAR, NAMA], time, impact), and a short 'recommendation' for aviation operations.`,
+        contents: `Act as a Real-Time Aviation Dispatcher. 
+        FETCH ACTUAL CURRENT DATA for ${selectedAirport.name} (${selectedAirport.id}) in ${selectedAirport.city}. 
+        Return a strict JSON object with weather and ACTIVE NOTAMs.
+        Categorize each advisory by severity: "CRITICAL" (e.g. airport closure), "WARNING" (e.g. runway maintenance), or "INFO".
+        Identify impact as "AIRSPACE", "RUNWAY", "NAV", or "PROCEDURE".`,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
@@ -1670,7 +1778,8 @@ export default function App() {
                 items: { 
                   type: Type.OBJECT,
                   properties: {
-                    type: { type: Type.STRING },
+                    type: { type: Type.STRING }, // Level: CRITICAL/WARNING/INFO/NOTAM
+                    severity: { type: Type.STRING }, // HIGH/MEDIUM/LOW
                     msg: { type: Type.STRING },
                     source: { type: Type.STRING },
                     time: { type: Type.STRING },

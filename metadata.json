@@ -1,6 +1,6 @@
 {
   "name": "Airport Weather Intelligence System",
-  "description": "A premium, production-level aviation control dashboard for intelligent weather monitoring and decision support.",
+  "description": "A premium aviation control dashboard featuring real-time weather intelligence, categorized NOTAM tactical feeds, and animated flight path visualization.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }
