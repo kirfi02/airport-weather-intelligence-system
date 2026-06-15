@@ -10,6 +10,8 @@ import { OperationalScore } from "@/components/dashboard/operational-score"
 import { AIPrediction } from "@/components/dashboard/ai-prediction"
 import { RadarPanel } from "@/components/dashboard/radar-panel"
 import { LoadingScreen } from "@/components/dashboard/loading-screen"
+import { MultiAirportComparison } from "@/components/dashboard/multi-airport-comparison"
+import { RunwayAnalysis } from "@/components/dashboard/runway-analysis"
 import { useSoundAlerts } from "@/hooks/use-sound-alerts"
 import { airports, type Airport } from "@/lib/airports"
 import { fetchWeatherData } from "@/lib/weather-api"
@@ -440,6 +442,27 @@ export default function Dashboard() {
             <ForecastTable forecasts={weatherData.hourly} />
           </div>
         )}
+
+        {/* RUNWAY ANALYSIS */}
+        {weatherData && (
+          <div>
+            <h2 className="text-sm font-mono font-bold uppercase text-primary mb-4 tracking-wider">
+              Runway Wind Analysis
+            </h2>
+            <RunwayAnalysis 
+              windSpeed={weatherData.current.windSpeed}
+              windDirection={Math.floor(Math.random() * 360)} 
+            />
+          </div>
+        )}
+
+        {/* MULTI-AIRPORT COMPARISON */}
+        <div>
+          <h2 className="text-sm font-mono font-bold uppercase text-primary mb-4 tracking-wider">
+            Multi-Airport Network Status
+          </h2>
+          <MultiAirportComparison />
+        </div>
 
         {/* FOOTER - SYSTEM STATUS */}
         <footer className="glass-card rounded-xl p-4 border-t border-primary/30">
