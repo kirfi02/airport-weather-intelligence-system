@@ -22,25 +22,19 @@ interface RadarBlip {
 }
 
 // Map real-world coordinates (Northern Nigeria) to radar display coordinates
-// Approximate bounds: Latitude 9-12°N, Longitude 7-10°E
 const coordinatesToRadar = (latitude: number, longitude: number): { x: number; y: number } => {
-  // Normalize coordinates to radar space (0-100)
-  // Latitude: 10 (center) = 50%, range ~9-12
-  // Longitude: 8.5 (center) = 50%, range ~7-10
-  
   const latCenter = 10.5
   const lonCenter = 8.5
-  const latRange = 3.5 // degrees
-  const lonRange = 3.5 // degrees
+  const latRange = 3.5
+  const lonRange = 3.5
   
-  // Convert to percentage (50 = center)
-  const x = 50 + ((longitude - lonCenter) / lonRange) * 35
-  const y = 50 - ((latitude - latCenter) / latRange) * 35 // Invert Y since SVG Y increases downward
+  // Convert to SVG coordinates (0-200 scale, center at 100,100)
+  const normalizedX = ((longitude - lonCenter) / lonRange) * 70
+  const normalizedY = -((latitude - latCenter) / latRange) * 70
   
-  // Clamp to radar bounds (15-85 to keep it within the visible area)
   return {
-    x: Math.max(15, Math.min(85, x)),
-    y: Math.max(15, Math.min(85, y)),
+    x: 100 + normalizedX,
+    y: 100 + normalizedY,
   }
 }
 
@@ -53,7 +47,7 @@ export function RadarPanel({
 }: RadarPanelProps) {
   const [blips, setBlips] = useState<RadarBlip[]>([])
   const [sweepAngle, setSweepAngle] = useState(0)
-  const [stationPosition, setStationPosition] = useState({ x: 50, y: 50 })
+  const [stationPosition, setStationPosition] = useState({ x: 100, y: 100 })
 
   // Update station position based on selected airport
   useEffect(() => {
@@ -76,11 +70,11 @@ export function RadarPanel({
       const aircraftCount = Math.floor(visibility / 5000) + 2
       for (let i = 0; i < Math.min(aircraftCount, 5); i++) {
         const angle = (Math.PI * 2 * i) / aircraftCount + Math.random() * 0.5
-        const distance = 20 + Math.random() * 25
+        const distance = 30 + Math.random() * 35
         newBlips.push({
           id: `aircraft-${i}`,
-          x: 50 + Math.cos(angle) * distance,
-          y: 50 + Math.sin(angle) * distance,
+          x: 100 + Math.cos(angle) * distance,
+          y: 100 + Math.sin(angle) * distance,
           type: "aircraft",
         })
       }
@@ -90,11 +84,11 @@ export function RadarPanel({
         const weatherCount = Math.floor(windSpeed / 10)
         for (let i = 0; i < Math.min(weatherCount, 3); i++) {
           const angle = Math.random() * Math.PI * 2
-          const distance = 30 + Math.random() * 15
+          const distance = 45 + Math.random() * 20
           newBlips.push({
             id: `weather-${i}`,
-            x: 50 + Math.cos(angle) * distance,
-            y: 50 + Math.sin(angle) * distance,
+            x: 100 + Math.cos(angle) * distance,
+            y: 100 + Math.sin(angle) * distance,
             type: "weather",
           })
         }
@@ -109,166 +103,160 @@ export function RadarPanel({
   // Animate sweep
   useEffect(() => {
     const interval = setInterval(() => {
-      setSweepAngle((prev) => (prev + 2) % 360)
+      setSweepAngle((prev) => (prev + 3) % 360)
     }, 50)
     return () => clearInterval(interval)
   }, [])
 
   return (
-    <div className={cn("glass-card rounded-xl p-6 card-glow-cyan", className)}>
+    <div className={cn("glass-card rounded-xl p-6 card-glow-cyan border border-primary/20", className)}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 pb-3 border-b border-primary/20">
         <h3 className="text-xs font-mono font-bold uppercase text-primary tracking-widest">
-          Aviation Monitoring
+          Aviation Monitoring Radar
         </h3>
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-green-400 pulse-glow" />
-          <span className="text-xs font-mono text-green-400">ACTIVE</span>
+          <span className="text-xs font-mono text-green-300">ACTIVE</span>
         </div>
       </div>
 
-      {/* Radar Screen */}
-      <div className="relative w-full aspect-square max-w-sm mx-auto">
-        {/* Radar background */}
-        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-slate-900 to-slate-950 border-2 border-primary/30 overflow-hidden">
+      {/* Radar Screen - SVG based */}
+      <div className="relative w-full max-w-sm mx-auto">
+        <svg
+          viewBox="0 0 200 200"
+          className="w-full h-full bg-gradient-to-br from-slate-900 to-slate-950 rounded-full border-2 border-primary/40"
+        >
           {/* Concentric rings */}
           {[1, 2, 3, 4].map((ring) => (
-            <div
-              key={ring}
-              className="absolute rounded-full border border-primary/20"
-              style={{
-                width: `${ring * 25}%`,
-                height: `${ring * 25}%`,
-                left: `${50 - (ring * 25) / 2}%`,
-                top: `${50 - (ring * 25) / 2}%`,
-              }}
+            <circle
+              key={`ring-${ring}`}
+              cx="100"
+              cy="100"
+              r={ring * 25}
+              fill="none"
+              stroke="rgba(56, 189, 248, 0.2)"
+              strokeWidth="0.5"
             />
           ))}
 
           {/* Crosshairs */}
-          <div className="absolute top-1/2 left-0 right-0 h-px bg-primary/20" />
-          <div className="absolute left-1/2 top-0 bottom-0 w-px bg-primary/20" />
+          <line x1="100" y1="0" x2="100" y2="200" stroke="rgba(56, 189, 248, 0.2)" strokeWidth="0.5" />
+          <line x1="0" y1="100" x2="200" y2="100" stroke="rgba(56, 189, 248, 0.2)" strokeWidth="0.5" />
 
-          {/* Diagonal lines */}
-          <div
-            className="absolute top-1/2 left-1/2 w-full h-px bg-primary/10 origin-left"
-            style={{ transform: "rotate(45deg) translateX(-50%)" }}
-          />
-          <div
-            className="absolute top-1/2 left-1/2 w-full h-px bg-primary/10 origin-left"
-            style={{ transform: "rotate(-45deg) translateX(-50%)" }}
-          />
+          {/* Diagonal lines (45 degrees) */}
+          <line x1="100" y1="0" x2="200" y2="100" stroke="rgba(56, 189, 248, 0.15)" strokeWidth="0.5" />
+          <line x1="0" y1="100" x2="100" y2="0" stroke="rgba(56, 189, 248, 0.15)" strokeWidth="0.5" />
+          <line x1="100" y1="200" x2="0" y2="100" stroke="rgba(56, 189, 248, 0.15)" strokeWidth="0.5" />
+          <line x1="200" y1="100" x2="100" y2="200" stroke="rgba(56, 189, 248, 0.15)" strokeWidth="0.5" />
 
           {/* Rotating sweep */}
-          <div
-            className="absolute top-1/2 left-1/2 w-1/2 h-full origin-left"
-            style={{ transform: `rotate(${sweepAngle}deg)` }}
-          >
-            <div
-              className="absolute top-0 left-0 w-full h-1/2 origin-bottom"
-              style={{
-                background:
-                  "conic-gradient(from -90deg, transparent 0deg, rgba(56, 189, 248, 0.4) 30deg, transparent 60deg)",
-                transform: "translateY(-100%)",
-              }}
+          <g style={{ transform: `rotate(${sweepAngle}deg)`, transformOrigin: "100px 100px", transition: "none" }}>
+            <path
+              d="M 100,100 L 100,20 A 80,80 0 0,1 156.57,43.43 Z"
+              fill="rgba(56, 189, 248, 0.2)"
+              stroke="none"
             />
-            {/* Sweep line */}
-            <div
-              className="absolute top-0 left-0 h-1/2 w-0.5 bg-gradient-to-t from-primary to-transparent origin-bottom"
-              style={{ transform: "translateY(-100%)" }}
-            />
-          </div>
+            <line x1="100" y1="100" x2="100" y2="20" stroke="rgba(56, 189, 248, 0.8)" strokeWidth="1" />
+          </g>
 
           {/* Radar blips */}
           {blips.map((blip) => {
+            const isStation = blip.type === "station"
+            const isAircraft = blip.type === "aircraft"
+            const isWeather = blip.type === "weather"
+
             // Check if blip is in sweep zone for highlight effect
-            const blipAngle =
-              (Math.atan2(blip.y - 50, blip.x - 50) * 180) / Math.PI + 180
-            const inSweep =
-              Math.abs(((sweepAngle + 180) % 360) - blipAngle) < 30
+            const blipAngle = (Math.atan2(blip.y - 100, blip.x - 100) * 180) / Math.PI
+            const normalizedSweepAngle = (sweepAngle + 180) % 360
+            const angleDiff = Math.abs(normalizedSweepAngle - blipAngle)
+            const inSweep = angleDiff < 40 || angleDiff > 320
 
             return (
-              <div
-                key={blip.id}
-                className={cn(
-                  "absolute transition-all duration-300",
-                  inSweep && "scale-125"
-                )}
-                style={{
-                  left: `${blip.x}%`,
-                  top: `${blip.y}%`,
-                  transform: "translate(-50%, -50%)",
-                }}
-              >
-                {blip.type === "station" && (
-                  <div className="relative">
-                    <div className="h-4 w-4 rounded-full bg-primary shadow-lg shadow-primary/50" />
-                    <div className="absolute inset-0 h-4 w-4 rounded-full border-2 border-primary/50 radar-ping" />
-                    <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[10px] font-mono text-primary font-bold">
+              <g key={blip.id}>
+                {isStation && (
+                  <>
+                    <circle cx={blip.x} cy={blip.y} r="3" fill="rgba(56, 189, 248, 1)" opacity={inSweep ? 1 : 0.8} />
+                    <circle cx={blip.x} cy={blip.y} r="3" fill="none" stroke="rgba(56, 189, 248, 0.6)" strokeWidth="1" />
+                    {/* Pulsing animation via CSS */}
+                    <circle
+                      cx={blip.x}
+                      cy={blip.y}
+                      r="3"
+                      fill="none"
+                      stroke="rgba(56, 189, 248, 1)"
+                      strokeWidth="1"
+                      opacity={inSweep ? 1 : 0.3}
+                      className="radar-ping"
+                    />
+                    <text
+                      x={blip.x}
+                      y={blip.y + 10}
+                      textAnchor="middle"
+                      className="text-[8px] font-mono font-bold fill-primary"
+                      dominantBaseline="middle"
+                    >
                       {blip.label}
-                    </span>
-                  </div>
+                    </text>
+                  </>
                 )}
-                {blip.type === "aircraft" && (
-                  <div
-                    className={cn(
-                      "h-2 w-2 rounded-full blip-pulse",
-                      inSweep
-                        ? "bg-green-400 shadow-lg shadow-green-400/50"
-                        : "bg-green-400/60"
-                    )}
+                {isAircraft && (
+                  <circle
+                    cx={blip.x}
+                    cy={blip.y}
+                    r="2"
+                    fill={inSweep ? "rgba(34, 197, 94, 1)" : "rgba(34, 197, 94, 0.6)"}
+                    className={inSweep ? "blip-pulse" : ""}
                   />
                 )}
-                {blip.type === "weather" && (
-                  <div
-                    className={cn(
-                      "h-3 w-3 rounded-full",
-                      inSweep
-                        ? "bg-yellow-400 shadow-lg shadow-yellow-400/50"
-                        : "bg-yellow-400/40"
-                    )}
+                {isWeather && (
+                  <circle
+                    cx={blip.x}
+                    cy={blip.y}
+                    r="2.5"
+                    fill={inSweep ? "rgba(234, 179, 8, 1)" : "rgba(234, 179, 8, 0.4)"}
                   />
                 )}
-              </div>
+              </g>
             )
           })}
 
           {/* Outer glow ring */}
-          <div className="absolute inset-0 rounded-full border border-primary/40 shadow-lg shadow-primary/20" />
-        </div>
+          <circle cx="100" cy="100" r="80" fill="none" stroke="rgba(56, 189, 248, 0.4)" strokeWidth="1" />
+        </svg>
 
         {/* Corner labels */}
-        <div className="absolute -top-1 left-1/2 -translate-x-1/2 text-[10px] font-mono text-primary/60">
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 text-[10px] font-mono text-primary/60 font-bold">
           N
         </div>
-        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-mono text-primary/60">
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] font-mono text-primary/60 font-bold">
           S
         </div>
-        <div className="absolute top-1/2 -left-2 -translate-y-1/2 text-[10px] font-mono text-primary/60">
+        <div className="absolute top-1/2 left-2 -translate-y-1/2 text-[10px] font-mono text-primary/60 font-bold">
           W
         </div>
-        <div className="absolute top-1/2 -right-2 -translate-y-1/2 text-[10px] font-mono text-primary/60">
+        <div className="absolute top-1/2 right-2 -translate-y-1/2 text-[10px] font-mono text-primary/60 font-bold">
           E
         </div>
       </div>
 
       {/* Status info below radar */}
       <div className="mt-4 text-center">
-        <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-2">
+        <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider mb-3">
           Northern Nigeria Aviation Monitoring
         </p>
         <div className="flex justify-center gap-4 text-xs font-mono">
           <div className="flex items-center gap-1.5">
             <div className="h-2 w-2 rounded-full bg-green-400 shadow-sm shadow-green-400/50" />
-            <span className="text-muted-foreground">Aircraft</span>
+            <span className="text-muted-foreground/80">Aircraft</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="h-2 w-2 rounded-full bg-yellow-400 shadow-sm shadow-yellow-400/50" />
-            <span className="text-muted-foreground">Weather</span>
+            <span className="text-muted-foreground/80">Weather</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="h-2 w-2 rounded-full bg-primary shadow-sm shadow-primary/50" />
-            <span className="text-muted-foreground">Station</span>
+            <div className="h-2 w-2 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400/50" />
+            <span className="text-muted-foreground/80">Station</span>
           </div>
         </div>
       </div>
