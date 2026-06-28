@@ -296,7 +296,28 @@ For questions, issues, or suggestions:
 
 ## Quick Links
 
-- 📊 [Live Demo](https://your-vercel-url.vercel.app)
-- 📖 [Documentation](./README.md)
+- 🌐 [Live Demo](https://v0-airport-weather-system.vercel.app)
+- 📖 [GitHub Repository](https://github.com/kirfi02/airport-weather-intelligence-system)
 - 🐛 [Report Issues](https://github.com/kirfi02/airport-weather-intelligence-system/issues)
-- 🚀 [Deploy Your Own](https://vercel.com/new/clone?repository-url=https://github.com/kirfi02/airport-weather-intelligence-system)
+- 🚀 [Deploy Your Own to Vercel](https://vercel.com/new/clone?repository-url=https://github.com/kirfi02/airport-weather-intelligence-system)
+
+---
+
+## Latest Updates
+
+### Version 2.1.0 (Current)
+- ✅ Multi-airport comparison dashboard fully functional
+- ✅ Runway wind analysis with optimal runway recommendations
+- ✅ Animated radar panel with correct geographic positioning
+- ✅ Fixed all deprecation warnings (upgraded to Recharts v3)
+- ✅ Deployed to production on Vercel
+- ✅ Demo mode with automatic airport cycling
+- ✅ Sound alert system with 3 alert levels
+- ✅ Professional loading screen with boot animation
+
+### Deployment Status
+- **Production URL**: https://v0-airport-weather-system.vercel.app
+- **Status**: ✅ Active and Running
+- **Last Deploy**: January 2026
+- **Build Time**: 4.2 seconds
+- **Bundle Size**: Optimized for performance
