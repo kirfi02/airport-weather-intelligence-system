@@ -10,36 +10,57 @@ export function useSoundAlerts() {
   const previousRiskRef = useRef<RiskLevelType | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
 
-  // Initialize audio context on first user interaction
+  // Initialize and unlock the audio context from a user gesture.
   const initializeAudio = useCallback(() => {
+    if (typeof window === "undefined") return
+
     if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+      const AudioContextConstructor =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+
+      if (!AudioContextConstructor) return
+      audioContextRef.current = new AudioContextConstructor()
+    }
+
+    if (audioContextRef.current.state === "suspended") {
+      void audioContextRef.current.resume()
     }
     setHasInteracted(true)
   }, [])
 
-  // Generate a beep sound using Web Audio API
-  const playBeep = useCallback((frequency: number, duration: number, volume: number = 0.3) => {
-    if (!soundEnabled || !audioContextRef.current) return
+  // Generate a beep sound using Web Audio API.
+  // `force` is used for the button confirmation tone before soundEnabled updates.
+  const playBeep = useCallback(
+    (frequency: number, duration: number, volume = 0.3, force = false) => {
+      const ctx = audioContextRef.current
+      if ((!soundEnabled && !force) || !ctx) return
 
-    const ctx = audioContextRef.current
-    const oscillator = ctx.createOscillator()
-    const gainNode = ctx.createGain()
+      const play = () => {
+        const oscillator = ctx.createOscillator()
+        const gainNode = ctx.createGain()
 
-    oscillator.connect(gainNode)
-    gainNode.connect(ctx.destination)
+        oscillator.connect(gainNode)
+        gainNode.connect(ctx.destination)
+        oscillator.frequency.value = frequency
+        oscillator.type = "sine"
 
-    oscillator.frequency.value = frequency
-    oscillator.type = "sine"
+        const startTime = ctx.currentTime
+        gainNode.gain.setValueAtTime(0, startTime)
+        gainNode.gain.linearRampToValueAtTime(volume, startTime + 0.01)
+        gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + duration)
+        oscillator.start(startTime)
+        oscillator.stop(startTime + duration)
+      }
 
-    // Envelope for smoother sound
-    gainNode.gain.setValueAtTime(0, ctx.currentTime)
-    gainNode.gain.linearRampToValueAtTime(volume, ctx.currentTime + 0.01)
-    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration)
-
-    oscillator.start(ctx.currentTime)
-    oscillator.stop(ctx.currentTime + duration)
-  }, [soundEnabled])
+      if (ctx.state === "suspended") {
+        void ctx.resume().then(play)
+      } else {
+        play()
+      }
+    },
+    [soundEnabled]
+  )
 
   // Play different sounds based on risk level
   const playAlertSound = useCallback((riskLevel: RiskLevelType) => {
@@ -72,11 +93,17 @@ export function useSoundAlerts() {
     previousRiskRef.current = currentRisk
   }, [playAlertSound])
 
-  // Toggle sound on/off
+  // Toggle sound on/off and confirm activation with an audible tone.
   const toggleSound = useCallback(() => {
     initializeAudio()
-    setSoundEnabled(prev => !prev)
-  }, [initializeAudio])
+    setSoundEnabled((previouslyEnabled) => {
+      const nextEnabled = !previouslyEnabled
+      if (nextEnabled) {
+        window.setTimeout(() => playBeep(800, 0.12, 0.18, true), 0)
+      }
+      return nextEnabled
+    })
+  }, [initializeAudio, playBeep])
 
   return {
     soundEnabled,
