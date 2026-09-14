@@ -86,7 +86,7 @@ export function AIPrediction({ prediction, className }: AIPredictionProps) {
               AI Decision Support
             </h3>
             <p className="text-xs text-primary/60 font-mono">
-              ML-Powered Analysis
+              Local Forecast Analysis
             </p>
           </div>
         </div>
@@ -144,7 +144,7 @@ export function AIPrediction({ prediction, className }: AIPredictionProps) {
 
         <div className="p-3 rounded-lg bg-background/50">
           <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">
-            AI Recommendation
+              Forecast Outlook
           </p>
           <p className="text-sm text-foreground leading-relaxed">
             {prediction.recommendation}
@@ -154,7 +154,7 @@ export function AIPrediction({ prediction, className }: AIPredictionProps) {
         <div className="flex items-center justify-between text-xs font-mono">
           <div className="flex items-center gap-2 text-green-400/80">
             <div className="h-2 w-2 rounded-full bg-green-400 pulse-glow" />
-            <span>Model: Weather-LSTM v2.1</span>
+            <span>Model: Local Trend Engine</span>
           </div>
           <span className="text-muted-foreground/60">Updated: Real-time</span>
         </div>

@@ -77,10 +77,11 @@ function SidebarProvider({
       if (setOpenProp) {
         setOpenProp(openState)
       } else {
-
+        _setOpen(openState)
+      }
       document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
     },
-    [setOpenProp, open],
+    [setOpenProp, open, _setOpen],
   )
 
   const toggleSidebar = React.useCallback(() => {

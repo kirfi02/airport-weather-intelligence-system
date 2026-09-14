@@ -5,10 +5,11 @@ import type { RiskLevel } from "@/lib/weather-types"
 
 interface RiskPanelProps {
   risk: RiskLevel
+  currentRisk?: RiskLevel
   className?: string
 }
 
-export function RiskPanel({ risk, className }: RiskPanelProps) {
+export function RiskPanel({ risk, currentRisk, className }: RiskPanelProps) {
   const statusClass = {
     normal: "status-normal",
     restricted: "status-warning",
@@ -98,6 +99,18 @@ export function RiskPanel({ risk, className }: RiskPanelProps) {
         </div>
         <p className="text-sm leading-relaxed opacity-90 font-mono">{risk.description}</p>
       </div>
+      {currentRisk && (
+        <div className="mt-3 flex items-center justify-between rounded-lg border border-primary/15 bg-background/40 px-3 py-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+          <span>Current conditions</span>
+          <span className={cn(
+            currentRisk.level === "normal" && "text-green-400",
+            currentRisk.level === "restricted" && "text-yellow-400",
+            currentRisk.level === "high" && "text-red-400"
+          )}>
+            {currentRisk.label}
+          </span>
+        </div>
+      )}
     </div>
   )
 }

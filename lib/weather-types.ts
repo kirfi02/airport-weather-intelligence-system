@@ -117,6 +117,53 @@ export function calculateRiskLevel(
   }
 }
 
+export function calculateForecastRiskLevel(
+  hourlyData: HourlyForecast[],
+  thresholds: RiskThresholds = DEFAULT_RISK_THRESHOLDS
+): RiskLevel {
+  const forecastWindow = hourlyData.slice(0, 7)
+  if (forecastWindow.length === 0) {
+    return {
+      level: "normal",
+      label: "LOADING",
+      description: "Forecast data is loading",
+      color: "green",
+    }
+  }
+
+  const worstWind = Math.max(...forecastWindow.map((forecast) => forecast.windSpeed))
+  const lowestVisibility = Math.min(...forecastWindow.map((forecast) => forecast.visibility))
+  const highestHumidity = Math.max(...forecastWindow.map((forecast) => forecast.humidity))
+  const includesRainOrSnow = forecastWindow.some((forecast) => forecast.weatherCode >= 61)
+  const includesThunderstorm = forecastWindow.some((forecast) => forecast.weatherCode >= 95)
+  const risk = calculateRiskLevel(worstWind, lowestVisibility, thresholds)
+
+  if (includesThunderstorm || risk.level === "high") {
+    return {
+      level: "high",
+      label: "HIGH RISK",
+      description: "High operational risk expected within the next six hours - Delay advised",
+      color: "red",
+    }
+  }
+
+  if (risk.level === "restricted" || includesRainOrSnow || highestHumidity > 85) {
+    return {
+      level: "restricted",
+      label: "RESTRICTED",
+      description: "Weather-related operational caution expected within the next six hours",
+      color: "yellow",
+    }
+  }
+
+  return {
+    level: "normal",
+    label: "NORMAL",
+    description: "No significant operational restrictions expected within the next six hours",
+    color: "green",
+  }
+}
+
 export function calculateOperationalScore(
   windSpeed: number,
   visibility: number,
@@ -152,8 +199,31 @@ export function calculateOperationalScore(
   return { score, status: "critical", label: "Critical" }
 }
 
+export function calculateForecastOperationalScore(
+  hourlyData: HourlyForecast[]
+): OperationalScore {
+  const forecastWindow = hourlyData.slice(0, 7)
+  if (forecastWindow.length === 0) {
+    return { score: 0, status: "warning", label: "Loading" }
+  }
+
+  const averageWind =
+    forecastWindow.reduce((sum, forecast) => sum + forecast.windSpeed, 0) /
+    forecastWindow.length
+  const lowestVisibility = Math.min(...forecastWindow.map((forecast) => forecast.visibility))
+  const highestHumidity = Math.max(...forecastWindow.map((forecast) => forecast.humidity))
+  const highestWeatherCode = Math.max(...forecastWindow.map((forecast) => forecast.weatherCode))
+
+  return calculateOperationalScore(
+    averageWind,
+    lowestVisibility,
+    highestHumidity,
+    highestWeatherCode
+  )
+}
+
 export function generateAIPrediction(hourlyData: HourlyForecast[]): AIPrediction {
-  if (hourlyData.length < 3) {
+  if (hourlyData.length < 4) {
     return {
       predictedTemperature: hourlyData[0]?.temperature || 0,
       trend: "stable",
@@ -162,33 +232,50 @@ export function generateAIPrediction(hourlyData: HourlyForecast[]): AIPrediction
     }
   }
 
-  const recentTemps = hourlyData.slice(0, 6).map((h) => h.temperature)
-  const avg = recentTemps.reduce((a, b) => a + b, 0) / recentTemps.length
-  
-  const firstHalf = recentTemps.slice(0, 3).reduce((a, b) => a + b, 0) / 3
-  const secondHalf = recentTemps.slice(3, 6).reduce((a, b) => a + b, 0) / 3
-  const diff = secondHalf - firstHalf
+  const forecastWindow = hourlyData.slice(0, 7)
+  const temperatures = forecastWindow.map((forecast) => forecast.temperature)
+  const meanX = (temperatures.length - 1) / 2
+  const meanY = temperatures.reduce((sum, temperature) => sum + temperature, 0) / temperatures.length
+  const slopeNumerator = temperatures.reduce(
+    (sum, temperature, index) => sum + (index - meanX) * (temperature - meanY),
+    0
+  )
+  const slopeDenominator = temperatures.reduce(
+    (sum, _, index) => sum + (index - meanX) ** 2,
+    0
+  )
+  const slope = slopeDenominator === 0 ? 0 : slopeNumerator / slopeDenominator
+  const predictedTemperature = Math.round((temperatures[temperatures.length - 1] + slope) * 10) / 10
 
   let trend: "rising" | "falling" | "stable" = "stable"
-  if (diff > 1) trend = "rising"
-  else if (diff < -1) trend = "falling"
+  if (slope > 0.35) trend = "rising"
+  else if (slope < -0.35) trend = "falling"
 
-  const predictedTemperature = Math.round((avg + diff) * 10) / 10
+  const residualVariance = temperatures.reduce(
+    (sum, temperature, index) => {
+      const fittedTemperature = meanY + slope * (index - meanX)
+      return sum + (temperature - fittedTemperature) ** 2
+    },
+    0
+  ) / temperatures.length
+  const maxWind = Math.max(...forecastWindow.map((forecast) => forecast.windSpeed))
+  const minVisibility = Math.min(...forecastWindow.map((forecast) => forecast.visibility))
+  const maxHumidity = Math.max(...forecastWindow.map((forecast) => forecast.humidity))
+  const severeWeather = forecastWindow.some((forecast) => forecast.weatherCode >= 61)
+  const confidencePenalty = residualVariance * 4 + (severeWeather ? 8 : 0)
+  const confidence = Math.round(Math.max(55, Math.min(96, 94 - confidencePenalty)))
 
-  const variance = recentTemps.reduce((acc, t) => acc + Math.pow(t - avg, 2), 0) / recentTemps.length
-  const confidence = Math.max(60, Math.min(95, 95 - variance * 2))
-
-  let recommendation = ""
-  const avgWindSpeed = hourlyData.slice(0, 6).reduce((a, h) => a + h.windSpeed, 0) / 6
-
-  if (avgWindSpeed > 25) {
-    recommendation = "Wind conditions expected to impact operations. Consider scheduling adjustments."
+  let recommendation = "Forecast conditions remain suitable for planned operations."
+  if (severeWeather || minVisibility < 3000 || maxWind > 30) {
+    recommendation = "Forecast risk is expected within the next six hours. Review delays, runway usage, and crew briefings."
+  } else if (maxWind > 20 || minVisibility < 5000 || maxHumidity > 85) {
+    recommendation = "Marginal conditions may affect the next six hours. Monitor the next forecast update and prepare adjustments."
   } else if (trend === "rising" && predictedTemperature > 35) {
-    recommendation = "Rising temperatures may affect aircraft performance. Monitor closely."
+    recommendation = "A warming trend may affect aircraft performance. Monitor loading and departure conditions."
   } else if (trend === "falling" && predictedTemperature < 20) {
-    recommendation = "Cooling trend detected. Standard operations expected to continue."
+    recommendation = "A cooling trend is developing. Continue standard operations with increased observation."
   } else {
-    recommendation = "Stable conditions forecast. Operations can proceed as planned."
+    recommendation = "Conditions are stable across the forecast window. Operations can proceed as planned."
   }
 
   return {

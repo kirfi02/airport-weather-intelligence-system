@@ -22,7 +22,9 @@ import {
   type OperationalScore as OperationalScoreType,
   type AIPrediction as AIPredictionType,
   calculateRiskLevel,
+  calculateForecastRiskLevel,
   calculateOperationalScore,
+  calculateForecastOperationalScore,
   generateAIPrediction,
   getWeatherDescription,
   type RiskThresholds,
@@ -85,7 +87,7 @@ export default function Dashboard() {
     return () => clearInterval(interval)
   }, [loadWeatherData, isInitialized])
 
-  const riskLevel: RiskLevel = weatherData
+  const currentRiskLevel: RiskLevel = weatherData
     ? calculateRiskLevel(
         weatherData.current.windSpeed,
         weatherData.current.visibility,
@@ -93,13 +95,12 @@ export default function Dashboard() {
       )
     : { level: "normal", label: "LOADING", description: "Loading...", color: "green" }
 
+  const riskLevel: RiskLevel = weatherData
+    ? calculateForecastRiskLevel(weatherData.hourly, riskThresholds)
+    : { level: "normal", label: "LOADING", description: "Loading...", color: "green" }
+
   const operationalScore: OperationalScoreType = weatherData
-    ? calculateOperationalScore(
-        weatherData.current.windSpeed,
-        weatherData.current.visibility,
-        weatherData.current.humidity,
-        weatherData.current.weatherCode
-      )
+    ? calculateForecastOperationalScore(weatherData.hourly)
     : { score: 0, status: "warning", label: "Loading" }
 
   const aiPrediction: AIPredictionType = weatherData
@@ -373,7 +374,7 @@ export default function Dashboard() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
-          <RiskPanel risk={riskLevel} />
+          <RiskPanel risk={riskLevel} currentRisk={currentRiskLevel} />
 
           <AIPrediction prediction={aiPrediction} />
 

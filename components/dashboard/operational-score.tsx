@@ -38,7 +38,7 @@ export function OperationalScore({ score, className }: OperationalScoreProps) {
       )}
     >
       <h3 className="text-lg font-semibold text-foreground mb-4">
-        Operational Score
+        Forecast Operational Score
       </h3>
 
       <div className="flex flex-col items-center justify-center">
